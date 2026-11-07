@@ -185,7 +185,7 @@ In serial single-environment training, transitions in the rollout buffer share i
 
 By deploying **8 parallel environments running in lockstep**:
 
-$$\mathcal{D}_{\text{batch}} = \bigcup_{i=1}^{8} \left\{ (\mathbf{s}_{t}^{(i)}, \mathbf{a}_{t}^{(i)}, r_{t}^{(i)}, \mathbf{s}_{t+1}^{(i)}, d_{t}^{(i)}) \right\}_{t=1}^{512}$$
+$$\mathcal{D}_{\text{batch}} = \bigcup_{i=1}^{8} \left[ (\mathbf{s}_t^{(i)}, \mathbf{a}_t^{(i)}, r_t^{(i)}, \mathbf{s}_{t+1}^{(i)}, d_t^{(i)}) \right]_{t=1}^{512}$$
 
 1. **Variance Reduction:** Every single gradient update aggregates 4,096 transitions collected across 8 distinct wind directions, lateral shears, and rotational torques.
 2. **Attitude Lock:** The policy gradient converged on a universal counter-torque equilibrium, driving lateral velocity $v_x \to 0$ and tilt $\theta \to 0$ before triggering touchdown engine shutdown.
