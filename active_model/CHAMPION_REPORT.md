@@ -74,24 +74,56 @@ Continuous two-axis analog thrust vector:
 
 ## 3. Neural Architecture & Optimization
 
-```
-                             State Observation s in R^8
-                                         │
-                   ┌─────────────────────┴─────────────────────┐
-                   ▼                                           ▼
-             [Linear 8->64]                              [Linear 8->64]
-             [    Tanh    ]                              [    Tanh    ]
-             [Linear 64->64]                             [Linear 64->64]
-             [    Tanh    ]                              [    Tanh    ]
-             [Linear 64->2 ]                             [Linear 64->1 ]
-                   │                                           │
-                   ▼                                           ▼
-      Action Mean mu_theta(s)                         State Value V_phi(s)
-                   │
-         [+ Learnable log_sigma]
-                   │
-                   ▼
-     a ~ Normal(mu, diag(sigma^2))
+```mermaid
+flowchart TD
+    subgraph TELEM ["Physical Telemetry Input"]
+        S["State Observation Vector s in R^8<br/>[x, y, vx, vy, θ, ω, c_left, c_right]"]
+    end
+
+    subgraph ACTOR ["Actor Network π_θ (Policy)"]
+        A1["Dense Layer (8 -> 64)<br/>Init: Orthogonal (gain = √2)"]
+        A_act1["Tanh Activation"]
+        A2["Dense Layer (64 -> 64)<br/>Init: Orthogonal (gain = √2)"]
+        A_act2["Tanh Activation"]
+        A3["Output Linear (64 -> 2)<br/>Init: Orthogonal (gain = 0.01)"]
+        MU["Action Mean Vector μ_θ(s)"]
+        LOGSTD["Learnable Parameter<br/>log(σ) in R^2"]
+        NORMAL["Diagonal Gaussian Policy<br/>N(μ, diag(σ^2))"]
+        SAMPLE["Action Sampling<br/>a = clamp(sample, -1, 1)"]
+    end
+
+    subgraph CRITIC ["Critic Network V_ϕ (Baseline)"]
+        C1["Dense Layer (8 -> 64)<br/>Init: Orthogonal (gain = √2)"]
+        C_act1["Tanh Activation"]
+        C2["Dense Layer (64 -> 64)<br/>Init: Orthogonal (gain = √2)"]
+        C_act2["Tanh Activation"]
+        C3["Output Linear (64 -> 1)<br/>Init: Orthogonal (gain = 1.0)"]
+        VAL["State Value V_ϕ(s) in R<br/>Expected Return Baseline"]
+    end
+
+    subgraph ACTUATION ["Physical Rocket Actuation"]
+        MAIN["Main Engine Throttle<br/>a0 in [-1.0, 1.0] (50% - 100% Power)"]
+        GIMBAL["Lateral Thrusters<br/>a1 in [-1.0, 1.0] (Left / Right Gimbal)"]
+    end
+
+    subgraph LOSS ["PPO Optimization & GAE"]
+        GAE["Generalized Advantage Estimation<br/>GAE(γ = 0.999, λ = 0.98)"]
+        SURR["Clipped Surrogate Loss<br/>L_CLIP(θ) with ε = 0.2"]
+    end
+
+    S --> A1
+    A1 --> A_act1 --> A2 --> A_act2 --> A3 --> MU
+    MU --> NORMAL
+    LOGSTD --> NORMAL
+    NORMAL --> SAMPLE
+    SAMPLE --> MAIN
+    SAMPLE --> GIMBAL
+
+    S --> C1
+    C1 --> C_act1 --> C2 --> C_act2 --> C3 --> VAL
+    VAL --> GAE
+    SAMPLE --> SURR
+    GAE --> SURR
 ```
 
 ### Policy & Value Representation
